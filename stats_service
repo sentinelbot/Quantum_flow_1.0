@@ -1,0 +1,228 @@
+# profit/stats_service.py
+import logging
+import numpy as np
+from datetime import datetime, timedelta
+from typing import Dict, List, Optional
+
+class StatsService:
+    """Service for calculating and retrieving trading statistics"""
+    
+    def __init__(self, db):
+        self.db = db
+        self.logger = logging.getLogger(__name__)
+        
+    def get_user_profit_statistics(self, user_id, days=30):
+        """Get profit statistics for a user over a period of days"""
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+            
+            # Query closed trades
+            cursor.execute("""
+                SELECT id, profit, entry_price, exit_price, quantity, created_at, updated_at
+                FROM trades
+                WHERE user_id = %s
+                AND status = 'closed'
+                AND updated_at BETWEEN %s AND %s
+            """, (user_id, start_date, end_date))
+            
+            trades = cursor.fetchall()
+            
+            if not trades:
+                return self._create_empty_stats()
+                
+            # Calculate statistics
+            profits = [trade[1] for trade in trades if trade[1] is not None]
+            
+            if not profits:
+                return self._create_empty_stats()
+                
+            total_trades = len(trades)
+            winning_trades = sum(1 for profit in profits if profit > 0)
+            losing_trades = sum(1 for profit in profits if profit <= 0)
+            
+            # Calculate metrics
+            total_profit = sum(profits)
+            win_rate = (winning_trades / total_trades * 100) if total_trades > 0 else 0
+            
+            # Calculate average win/loss
+            avg_win = np.mean([profit for profit in profits if profit > 0]) if winning_trades > 0 else 0
+            avg_loss = np.mean([abs(profit) for profit in profits if profit <= 0]) if losing_trades > 0 else 0
+            
+            # Calculate profit factor
+            profit_factor = sum(p for p in profits if p > 0) / abs(sum(p for p in profits if p < 0)) if sum(p for p in profits if p < 0) != 0 else 0
+            
+            # Calculate Sharpe ratio (simplified)
+            returns = np.array(profits)
+            sharpe = (np.mean(returns) / np.std(returns)) * np.sqrt(365) if np.std(returns) > 0 else 0
+            
+            # Calculate Sortino ratio (simplified)
+            negative_returns = np.array([r for r in returns if r < 0])
+            sortino = (np.mean(returns) / np.std(negative_returns)) * np.sqrt(365) if len(negative_returns) > 0 and np.std(negative_returns) > 0 else 0
+            
+            # Calculate max drawdown
+            cumulative = np.cumsum(returns)
+            max_dd = 0
+            peak = cumulative[0]
+            
+            for value in cumulative:
+                if value > peak:
+                    peak = value
+                dd = (peak - value) / peak if peak > 0 else 0
+                max_dd = max(max_dd, dd)
+            
+            # Format and return statistics
+            stats = {
+                'total_profit': total_profit,
+                'total_trades': total_trades,
+                'winning_trades': winning_trades,
+                'losing_trades': losing_trades,'win_rate': win_rate,
+                'avg_win': avg_win,
+                'avg_loss': avg_loss,
+                'profit_factor': profit_factor,
+                'sharpe_ratio': sharpe,
+                'sortino_ratio': sortino,
+                'max_drawdown': max_dd * 100  # Convert to percentage
+            }
+            
+            return stats
+            
+        except Exception as e:
+            self.logger.error(f"Error getting profit statistics for user {user_id}: {e}")
+            return self._create_empty_stats()
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'conn' in locals() and conn:
+                self.db.release_connection(conn)
+                
+    def _create_empty_stats(self):
+        """Create empty statistics object"""
+        return {
+            'total_profit': 0,
+            'total_trades': 0,
+            'winning_trades': 0,
+            'losing_trades': 0,
+            'win_rate': 0,
+            'avg_win': 0,
+            'avg_loss': 0,
+            'profit_factor': 0,
+            'sharpe_ratio': 0,
+            'sortino_ratio': 0,
+            'max_drawdown': 0
+        }
+        
+    def get_strategy_performance(self, user_id=None, strategy=None, days=30):
+        """Get performance statistics for a strategy"""
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+            
+            # Build query based on parameters
+            query = """
+                SELECT strategy, SUM(profit) as total_profit, COUNT(*) as trade_count,
+                       SUM(CASE WHEN profit > 0 THEN 1 ELSE 0 END) as winning_trades
+                FROM trades
+                WHERE status = 'closed'
+                AND updated_at BETWEEN %s AND %s
+            """
+            
+            params = [start_date, end_date]
+            
+            if user_id:
+                query += " AND user_id = %s"
+                params.append(user_id)
+                
+            if strategy:
+                query += " AND strategy = %s"
+                params.append(strategy)
+                
+            query += " GROUP BY strategy ORDER BY total_profit DESC"
+            
+            cursor.execute(query, tuple(params))
+            results = cursor.fetchall()
+            
+            if not results:
+                return [] if not strategy else self._create_empty_stats()
+                
+            # Format results
+            if strategy:
+                # Return detailed stats for a single strategy
+                return self.get_user_profit_statistics(user_id, days) if user_id else self._create_empty_stats()
+            else:
+                # Return summary for all strategies
+                strategy_stats = []
+                
+                for row in results:
+                    strategy_name, total_profit, trade_count, winning_trades = row
+                    win_rate = (winning_trades / trade_count * 100) if trade_count > 0 else 0
+                    
+                    strategy_stats.append({
+                        'strategy': strategy_name,
+                        'total_profit': total_profit,
+                        'trade_count': trade_count,
+                        'winning_trades': winning_trades,
+                        'win_rate': win_rate
+                    })
+                    
+                return strategy_stats
+                
+        except Exception as e:
+            self.logger.error(f"Error getting strategy performance: {e}")
+            return [] if not strategy else self._create_empty_stats()
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'conn' in locals() and conn:
+                self.db.release_connection(conn)
+                
+    def get_daily_profit_history(self, user_id, days=30):
+        """Get daily profit history for a user"""
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            
+            # Calculate date range
+            end_date = datetime.now()
+            start_date = end_date - timedelta(days=days)
+            
+            # Query daily profits
+            cursor.execute("""
+                SELECT DATE(updated_at) as trade_date, SUM(profit) as daily_profit
+                FROM trades
+                WHERE user_id = %s
+                AND status = 'closed'
+                AND updated_at BETWEEN %s AND %s
+                GROUP BY DATE(updated_at)
+                ORDER BY trade_date
+            """, (user_id, start_date, end_date))
+            
+            results = cursor.fetchall()
+            
+            if not results:
+                return []
+                
+            # Format results
+            daily_profits = [
+                {'date': row[0].strftime('%Y-%m-%d'), 'profit': row[1]}
+                for row in results
+            ]
+            
+            return daily_profits
+            
+        except Exception as e:
+            self.logger.error(f"Error getting daily profit history for user {user_id}: {e}")
+            return []
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'conn' in locals() and conn:
+                self.db.release_connection(conn)

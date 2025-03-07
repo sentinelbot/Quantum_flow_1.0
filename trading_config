@@ -1,0 +1,99 @@
+{
+  "strategies": {
+    "scalping": {
+      "enabled": true,
+      "timeframes": [
+        "1m",
+        "5m"
+      ],
+      "indicators": {
+        "rsi": {
+          "period": 14,
+          "overbought": 70,
+          "oversold": 30
+        },
+        "ema": {
+          "fast": 9,
+          "slow": 21
+        }
+      },
+      "min_position_size": 0.001,
+      "max_position_size": 0.1
+    },
+    "trend_following": {
+      "enabled": true,
+      "timeframes": [
+        "1h",
+        "4h"
+      ],
+      "indicators": {
+        "ema": {
+          "fast": 20,
+          "slow": 50,
+          "trend": 200
+        },
+        "macd": {
+          "fast": 12,
+          "slow": 26,
+          "signal": 9
+        }
+      },
+      "min_position_size": 0.001,
+      "max_position_size": 0.1
+    },
+    "mean_reversion": {
+      "enabled": true,
+      "timeframes": [
+        "15m",
+        "1h"
+      ],
+      "indicators": {
+        "bollinger": {
+          "period": 20,
+          "std_dev": 2
+        },
+        "rsi": {
+          "period": 14,
+          "overbought": 70,
+          "oversold": 30
+        }
+      },
+      "min_position_size": 0.001,
+      "max_position_size": 0.1
+    }
+  },
+  "allocations": {
+    "low": {
+      "scalping": 5,
+      "trend_following": 3,
+      "mean_reversion": 2
+    },
+    "medium": {
+      "scalping": 10,
+      "trend_following": 7,
+      "mean_reversion": 5
+    },
+    "high": {
+      "scalping": 15,
+      "trend_following": 10,
+      "mean_reversion": 8
+    }
+  },
+  "risk_parameters": {
+    "low": {
+      "max_drawdown": 5,
+      "stop_loss_percent": 2,
+      "take_profit_percent": 4
+    },
+    "medium": {
+      "max_drawdown": 10,
+      "stop_loss_percent": 5,
+      "take_profit_percent": 8
+    },
+    "high": {
+      "max_drawdown": 15,
+      "stop_loss_percent": 10,
+      "take_profit_percent": 15
+    }
+  }
+}

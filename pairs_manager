@@ -1,0 +1,126 @@
+# services/pairs_manager.py
+import logging
+from typing import List, Dict, Optional
+
+class PairsManager:
+    """Manages trading pairs for users"""
+    
+    def __init__(self, db):
+        self.db = db
+        self.logger = logging.getLogger(__name__)
+        
+    def get_available_pairs(self):
+        """Get all available trading pairs from the exchange"""
+        try:
+            from config.trading_config import TradingConfig
+            trading_config = TradingConfig.get_instance()
+            
+            # Get pairs from configuration
+            default_pairs = trading_config.get("trading_pairs", [])
+            
+            # You could also fetch pairs from exchange API
+            # This is a simplified implementation
+            
+            return default_pairs
+        except Exception as e:
+            self.logger.error(f"Error getting available pairs: {e}")
+            return []
+            
+    def get_user_pairs(self, user_id):
+        """Get trading pairs enabled for a specific user"""
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            
+            # Query user trading pairs
+            cursor.execute("""
+                SELECT trading_pair, is_enabled
+                FROM user_trading_pairs
+                WHERE user_id = %s
+            """, (user_id,))
+            
+            results = cursor.fetchall()
+            
+            if results:
+                # Return dictionary of pairs and their enabled status
+                return {pair: enabled for pair, enabled in results}
+            else:
+                # If no records, get default pairs
+                default_pairs = self.get_available_pairs()
+                return {pair: True for pair in default_pairs[:5]}  # Enable first 5 by default
+                
+        except Exception as e:
+            self.logger.error(f"Error getting user pairs: {e}")
+            return {}
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'conn' in locals() and conn:
+                self.db.release_connection(conn)
+                
+    def enable_pair(self, user_id, trading_pair):
+        """Enable a trading pair for a user"""
+        return self._set_pair_status(user_id, trading_pair, True)
+        
+    def disable_pair(self, user_id, trading_pair):
+        """Disable a trading pair for a user"""
+        return self._set_pair_status(user_id, trading_pair, False)
+        
+    def _set_pair_status(self, user_id, trading_pair, is_enabled):
+        """Set enabled status for a trading pair"""
+        try:
+            # Validate trading pair
+            available_pairs = self.get_available_pairs()
+            if trading_pair not in available_pairs:
+                self.logger.warning(f"Invalid trading pair: {trading_pair}")
+                return False
+                
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            
+            # Check if pair already exists for user
+            cursor.execute("""
+                SELECT 1 FROM user_trading_pairs
+                WHERE user_id = %s AND trading_pair = %s
+            """, (user_id, trading_pair))
+            
+            if cursor.fetchone():
+                # Update existing record
+                cursor.execute("""
+                    UPDATE user_trading_pairs
+                    SET is_enabled = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = %s AND trading_pair = %s
+                    RETURNING id
+                """, (is_enabled, user_id, trading_pair))
+            else:
+                # Insert new record
+                cursor.execute("""
+                    INSERT INTO user_trading_pairs
+                    (user_id, trading_pair, is_enabled)
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                """, (user_id, trading_pair, is_enabled))
+                
+            result = cursor.fetchone()
+            conn.commit()
+            
+            if result:
+                status = "enabled" if is_enabled else "disabled"
+                self.logger.info(f"Trading pair {trading_pair} {status} for user {user_id}")
+                return True
+            else:
+                status = "enable" if is_enabled else "disable"
+                self.logger.warning(f"Failed to {status} trading pair {trading_pair} for user {user_id}")
+                return False
+                
+        except Exception as e:
+            status = "enabling" if is_enabled else "disabling"
+            self.logger.error(f"Error {status} trading pair: {e}")
+            if 'conn' in locals() and conn:
+                conn.rollback()
+            return False
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'conn' in locals() and conn:
+                self.db.release_connection(conn)

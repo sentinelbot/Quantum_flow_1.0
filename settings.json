@@ -1,0 +1,251 @@
+{
+  "database": {
+    "host": "localhost",
+    "port": 5432,
+    "username": "quantumflow_user",
+    "password": "kinaro15",
+    "name": "quantumflow_db",
+    "max_connections": 20,
+    "connection_timeout": 30,
+    "ssl_required": true,
+    "backup_retention_days": 7
+  },
+  "security": {
+    "encryption_key": "RqnVjbWD_7MDhP87cwlE8ASSi3NOJ-N3v2tZvRlBJUY=",
+    "jwt_secret": "generate_another_secure_random_string_for_jwt_tokens",
+    "password_complexity": {
+      "min_length": 12,
+      "require_uppercase": true,
+      "require_lowercase": true,
+      "require_numbers": true,
+      "require_special_chars": true
+    },
+    "rate_limiting": {
+      "login_attempts": 5,
+      "lockout_duration_minutes": 15,
+      "api_request_limit_per_minute": 100
+    }
+  },
+  "trading": {
+    "default_strategy": "momentum_trend_following",
+    "default_exchange": "binance",
+    "trading_enabled": true,
+    "backtesting_mode": true,
+    "paper_trading": true,
+    "base_currency": "USDT",
+    "risk_management": {
+      "max_portfolio_risk": 0.02,
+      "stop_loss_percentage": 0.05,
+      "take_profit_percentage": 0.1,
+      "max_leverage": 3,
+      "max_open_positions": 10,
+      "diversification_target": 0.15,
+      "max_drawdown_percentage": 15
+    },
+    "trading_hours": {
+      "enabled": true,
+      "start_time": "06:00",
+      "end_time": "22:00",
+      "timezone": "UTC"
+    },
+    "order_types": {
+      "market_order_enabled": true,
+      "limit_order_enabled": true,
+      "stop_order_enabled": true,
+      "trailing_stop_enabled": true
+    },
+    "trading_pairs": [
+      "BTC/USDT",
+      "ETH/USDT",
+      "SOL/USDT",
+      "XRP/USDT",
+      "ADA/USDT"
+    ]
+  },
+  "exchanges": {
+    "binance": {
+      "api_key": "",
+      "api_secret": "",
+      "testnet": true,
+      "rate_limit": {
+        "max_requests_per_minute": 1200,
+        "retry_delay_seconds": 5
+      }
+    }
+  },
+  "strategies": {
+    "momentum_trend_following": {
+      "timeframes": ["1h", "4h", "1d"],
+      "indicators": {
+        "rsi": {
+          "period": 14,
+          "overbought": 70,
+          "oversold": 30
+        },
+        "macd": {
+          "fast_period": 12,
+          "slow_period": 26,
+          "signal_period": 9
+        },
+        "moving_averages": {
+          "short_period": 20,
+          "long_period": 50
+        }
+      },
+      "position_sizing": {
+        "method": "percentage",
+        "value": 0.1
+      }
+    }
+  },
+  "ml": {
+    "data_processing": {
+      "lookback_period_days": 365,
+      "features": ["price", "volume", "rsi", "macd", "bollinger"],
+      "normalization": "min_max",
+      "train_test_split": 0.8,
+      "cache_dir": "cache"
+    },
+    "training": {
+      "batch_size": 64,
+      "epochs": 100,
+      "learning_rate": 0.001,
+      "early_stopping_patience": 10,
+      "model_dir": "models",
+      "data_dir": "data"
+    },
+    "models": {
+      "price_predictor": {
+        "architecture": "lstm",
+        "layers": [64, 32],
+        "dropout": 0.2,
+        "prediction_horizon": 24,
+        "model_dir": "models"
+      },
+      "pattern_recognition": {
+        "min_pattern_length": 10,
+        "max_pattern_length": 100,
+        "similarity_threshold": 0.8,
+        "model_dir": "models"
+      },
+      "regime_classifier": {
+        "num_regimes": 3,
+        "window_size": 20,
+        "model_dir": "models"
+      }
+    }
+  },
+  "analysis": {
+    "market": {
+      "indicators": ["rsi", "macd", "bollinger", "ichimoku", "fibonacci"],
+      "update_interval_minutes": 15
+    },
+    "sentiment": {
+      "enabled": true,
+      "sources": ["twitter", "reddit", "news"],
+      "update_interval_minutes": 60,
+      "impact_weight": 0.2
+    }
+  },
+  "notification": {
+    "general": {
+      "trade_notifications": true,
+      "system_alerts": true,
+      "performance_reports": true
+    },
+    "email": {
+      "enabled": true,
+      "smtp_server": "smtp.gmail.com",
+      "smtp_port": 587,
+      "smtp_username": "kinaropeter2@gmail.com",
+      "smtp_password": "nbmr lxpo qgoh njgb",
+      "from_email": "peterkinaro46@gmail.com",
+      "admin_emails": ["peterkinaro46@gmail.com"]
+    },
+    "telegram": {
+      "enabled": true,
+      "token": "7321434614:AAHXIYwBLVymJ_DFdKgEoMSZvVgRyme8Txc",
+      "chat_ids": [5857265526]
+    }
+  },
+  "admin": {
+    "telegram": {
+      "enabled": true,
+      "token": "7736106672:AAELoeQQtey4l03mlkdW4GWjqTJY0QDwHmg",
+      "admin_user_ids": [5857265526]
+    },
+    "dashboard": {
+      "enabled": true,
+      "host": "127.0.0.1",
+      "port": 8081,
+      "alternative_ports": [8082, 8083, 8084, 8085],
+      "debug_mode": true,
+      "session_timeout_minutes": 30
+    },
+    "admin_bot": {
+      "event_loop_mode": "thread_specific",
+      "max_retries": 3,
+      "retry_delay": 5
+    }
+  },
+  "compliance": {
+    "kyc": {
+      "required": true,
+      "verification_levels": ["basic", "advanced"]
+    },
+    "aml": {
+      "monitoring_enabled": true,
+      "suspicious_transaction_threshold": 10000
+    },
+    "reporting": {
+      "enabled": true,
+      "report_directory": "reports/compliance"
+    }
+  },
+  "profit": {
+    "fees": {
+      "maker": 0.001,
+      "taker": 0.001,
+      "withdrawal": 0.0005,
+      "fee_percent": 20.0,
+      "referral_fee_percent": 10.0,
+      "admin_wallet": "YOUR_WALLET_ADDRESS_HERE"
+    },
+    "tracking": {
+      "include_fees": true,
+      "include_slippage": true,
+      "report_directory": "reports/profit"
+    }
+  },
+  "logging": {
+    "level": "INFO",
+    "file_rotation_days": 7,
+    "log_directory": "logs",
+    "console_output": true
+  },
+  "system": {
+    "threads": {
+      "max_worker_threads": 8
+    },
+    "memory": {
+      "cache_size_mb": 512,
+      "warning_threshold_percentage": 80,
+      "critical_threshold_percentage": 90
+    },
+    "maintenance": {
+      "db_optimization_interval_hours": 24,
+      "log_cleanup_days": 30
+    },
+    "self_healing": {
+      "enabled": true,
+      "interval": 10,
+      "max_attempts": 5,
+      "backoff_factor": 2.0,
+      "critical_components": ["trading_engine", "database", "api_connections"]
+    }
+  },
+  "app": {
+    "name": "QuantumFlow Trading Bot",
+    "debug": false
+  }
+}

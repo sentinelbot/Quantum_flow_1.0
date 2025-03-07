@@ -1,0 +1,95 @@
+{
+  "users": {
+    "columns": {
+      "id": "SERIAL PRIMARY KEY",
+      "email": "VARCHAR(255) NOT NULL UNIQUE",
+      "telegram_id": "VARCHAR(255) UNIQUE",
+      "is_active": "BOOLEAN DEFAULT true",
+      "is_admin": "BOOLEAN DEFAULT false",
+      "referrer_id": "INTEGER",
+      "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    }
+  },
+  "user_trading_settings": {
+    "columns": {
+      "id": "SERIAL PRIMARY KEY",
+      "user_id": "INTEGER NOT NULL",
+      "trading_mode": "VARCHAR(10) NOT NULL DEFAULT 'paper'",
+      "risk_level": "VARCHAR(10) NOT NULL DEFAULT 'medium'",
+      "is_paused": "BOOLEAN DEFAULT false",
+      "max_open_positions": "INTEGER DEFAULT 5",
+      "max_position_size": "DECIMAL(10,5) DEFAULT 0.1",
+      "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    },
+    "constraints": [
+      "CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id)",
+      "CONSTRAINT unique_user_id UNIQUE (user_id)"
+    ]
+  },
+  "trades": {
+    "columns": {
+      "id": "SERIAL PRIMARY KEY",
+      "user_id": "INTEGER NOT NULL",
+      "strategy": "VARCHAR(50) NOT NULL",
+      "symbol": "VARCHAR(20) NOT NULL",
+      "side": "VARCHAR(10) NOT NULL",
+      "quantity": "DECIMAL(20,10) NOT NULL",
+      "entry_price": "DECIMAL(20,10) NOT NULL",
+      "exit_price": "DECIMAL(20,10)",
+      "profit": "DECIMAL(20,10)",
+      "status": "VARCHAR(20) NOT NULL DEFAULT 'open'",
+      "order_id": "VARCHAR(255)",
+      "notes": "TEXT",
+      "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    },
+    "constraints": [
+      "CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id)"
+    ]
+  },
+  "positions": {
+    "columns": {
+      "id": "SERIAL PRIMARY KEY",
+      "user_id": "INTEGER NOT NULL",
+      "symbol": "VARCHAR(20) NOT NULL",
+      "quantity": "DECIMAL(20,10) NOT NULL",
+      "entry_price": "DECIMAL(20,10) NOT NULL",
+      "current_price": "DECIMAL(20,10)",
+      "unrealized_profit": "DECIMAL(20,10)",
+      "stop_loss": "DECIMAL(20,10)",
+      "take_profit": "DECIMAL(20,10)",
+      "status": "VARCHAR(20) NOT NULL DEFAULT 'open'",
+      "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    },
+    "constraints": [
+      "CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id)",
+      "CONSTRAINT unique_user_symbol UNIQUE (user_id, symbol)"
+    ]
+  },
+  "fee_transactions": {
+    "columns": {
+      "id": "SERIAL PRIMARY KEY",
+      "trade_id": "INTEGER NOT NULL",
+      "user_id": "INTEGER NOT NULL",
+      "referrer_id": "INTEGER",
+      "profit_amount": "DECIMAL(20,10) NOT NULL",
+      "fee_amount": "DECIMAL(20,10) NOT NULL",
+      "fee_rate": "DECIMAL(10,5) NOT NULL",
+      "referral_amount": "DECIMAL(20,10) NOT NULL DEFAULT 0",
+      "admin_amount": "DECIMAL(20,10) NOT NULL",
+      "admin_wallet": "VARCHAR(255)",
+      "transaction_status": "VARCHAR(20) DEFAULT 'pending'",
+      "transaction_hash": "VARCHAR(255)",
+      "notes": "TEXT",
+      "created_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+      "updated_at": "TIMESTAMP DEFAULT CURRENT_TIMESTAMP"
+    },
+    "constraints": [
+      "CONSTRAINT fk_trade FOREIGN KEY (trade_id) REFERENCES trades(id)",
+      "CONSTRAINT fk_user FOREIGN KEY (user_id) REFERENCES users(id)"
+    ]
+  }
+}

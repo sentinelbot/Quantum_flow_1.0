@@ -1,0 +1,138 @@
+# services/strategy_manager.py
+import logging
+from typing import List, Dict, Optional
+
+class StrategyManager:
+    """Manages trading strategies for users"""
+    
+    def __init__(self, db):
+        self.db = db
+        self.logger = logging.getLogger(__name__)
+        
+    def get_available_strategies(self):
+        """Get all available trading strategies"""
+        try:
+            from config.trading_config import TradingConfig
+            trading_config = TradingConfig.get_instance()
+            
+            # Get strategies from configuration
+            strategies_config = trading_config.get("strategies", {})
+            
+            # Filter to enabled strategies
+            available_strategies = [
+                name for name, config in strategies_config.items()
+                if config.get("enabled", True)
+            ]
+            
+            return available_strategies
+        except Exception as e:
+            self.logger.error(f"Error getting available strategies: {e}")
+            return []
+            
+    def get_user_strategies(self, user_id):
+        """Get strategies enabled for a specific user"""
+        try:
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            
+            # Query user strategies
+            cursor.execute("""
+                SELECT strategy_name, allocation_percent
+                FROM user_strategies
+                WHERE user_id = %s
+            """, (user_id,))
+            
+            results = cursor.fetchall()
+            
+            if results:
+                # Return dictionary of strategies and their allocation percentages
+                return {strategy: allocation for strategy, allocation in results}
+            else:
+                # If no records, get default strategies based on risk level
+                from services.user_trading_manager import UserTradingManager
+                trading_manager = UserTradingManager(self.db)
+                settings = trading_manager.get_trading_settings(user_id)
+                
+                risk_level = settings.get('risk_level', 'medium') if settings else 'medium'
+                
+                # Get default allocations for risk level
+                from config.trading_config import TradingConfig
+                trading_config = TradingConfig.get_instance()
+                
+                default_allocations = trading_config.get_strategy_allocation(risk_level)
+                
+                return default_allocations or {}
+                
+        except Exception as e:
+            self.logger.error(f"Error getting user strategies: {e}")
+            return {}
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'conn' in locals() and conn:
+                self.db.release_connection(conn)
+                
+    def set_strategy_allocation(self, user_id, strategy_name, allocation_percent):
+        """Set allocation percentage for a strategy"""
+        try:
+            # Validate strategy
+            available_strategies = self.get_available_strategies()
+            if strategy_name not in available_strategies:
+                self.logger.warning(f"Invalid strategy: {strategy_name}")
+                return False
+                
+            # Validate allocation percentage
+            if not isinstance(allocation_percent, (int, float)) or allocation_percent < 0 or allocation_percent > 100:
+                self.logger.warning(f"Invalid allocation percentage: {allocation_percent}")
+                return False
+                
+            conn = self.db.get_connection()
+            cursor = conn.cursor()
+            
+            # Check if strategy already exists for user
+            cursor.execute("""
+                SELECT 1 FROM user_strategies
+                WHERE user_id = %s AND strategy_name = %s
+            """, (user_id, strategy_name))
+            
+            if cursor.fetchone():
+                # Update existing record
+                cursor.execute("""
+                    UPDATE user_strategies
+                    SET allocation_percent = %s, updated_at = CURRENT_TIMESTAMP
+                    WHERE user_id = %s AND strategy_name = %s
+                    RETURNING id
+                """, (allocation_percent, user_id, strategy_name))
+            else:
+                # Insert new record
+                cursor.execute("""
+                    INSERT INTO user_strategies
+                    (user_id, strategy_name, allocation_percent)
+                    VALUES (%s, %s, %s)
+                    RETURNING id
+                """, (user_id, strategy_name, allocation_percent))
+                
+            result = cursor.fetchone()
+            conn.commit()
+            
+            if result:
+                self.logger.info(f"Strategy {strategy_name} allocation set to {allocation_percent}% for user {user_id}")
+                return True
+            else:
+                self.logger.warning(f"Failed to set strategy allocation for user {user_id}")
+                return False
+                
+        except Exception as e:
+            self.logger.error(f"Error setting strategy allocation: {e}")
+            if 'conn' in locals() and conn:
+                conn.rollback()
+            return False
+        finally:
+            if 'cursor' in locals() and cursor:
+                cursor.close()
+            if 'conn' in locals() and conn:
+                self.db.release_connection(conn)
+                
+    def disable_strategy(self, user_id, strategy_name):
+        """Disable a strategy for a user by setting allocation to 0"""
+        return self.set_strategy_allocation(user_id, strategy_name, 0)
